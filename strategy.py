@@ -16,5 +16,5 @@ daily_df["final_signal"] = np.where(
 )
 print(daily_df[["signal_daily", "signal_lstm", "final_signal"]].tail())
 print(f"Number of trading days: {(daily_df['final_signal'] != 0).sum()}")
+daily_df.to_csv("final_signals.csv")
 
-# fix this line: daily_df.to_csv("outputs/final_signals.csv")
