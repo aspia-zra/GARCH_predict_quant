@@ -44,7 +44,7 @@ def train_lstm(log_returns, window=30, train_frac=0.7):
     # -----------------------------
     model = Sequential([
         Input(shape=(window, 1)),
-        LSTM(16),
+        LSTM(32, return_sequences=False),
         Dense(1, activation="sigmoid")
     ])
 
@@ -56,7 +56,7 @@ def train_lstm(log_returns, window=30, train_frac=0.7):
     model.fit(
         X_train,
         y_train,
-        epochs=15,
+        epochs=50,
         batch_size=32,
         verbose=0
     )
