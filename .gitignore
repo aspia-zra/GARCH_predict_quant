@@ -1,5 +1,5 @@
 venv/
 venv/
-*.ipynb
+my_notes.ipynb/
 __pycache__/
 *.pyc
