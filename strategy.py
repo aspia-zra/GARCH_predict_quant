@@ -18,14 +18,14 @@ def sharpe_ratio(returns, risk_free_rate=0.0, periods=252):
 
 
 # -----------------------------
-# Run GARCH pipeline
+# Load GARCH signals
 # -----------------------------
 daily_df = run_garch_pipeline()
 daily_df = daily_df.dropna(subset=["log_ret", "signal_daily"])
 
 
 # -----------------------------
-# Add extra features for LSTM
+# Add LSTM features
 # -----------------------------
 daily_df["ret_1"] = daily_df["log_ret"].shift(1)
 daily_df["ret_3"] = daily_df["log_ret"].rolling(3).mean()
@@ -33,33 +33,45 @@ daily_df["ret_5"] = daily_df["log_ret"].rolling(5).mean()
 daily_df["vol_5"] = daily_df["log_ret"].rolling(5).std()
 daily_df["mom_3"] = daily_df["ret_3"] / daily_df["vol_5"]
 daily_df["mom_5"] = daily_df["ret_5"] / daily_df["vol_5"]
-
 daily_df.dropna(inplace=True)
 
 features = ["log_ret", "ret_1", "ret_3", "ret_5", "vol_5", "mom_3", "mom_5"]
 
 
 # -----------------------------
-# Run LSTM (probabilities)
+# Walk-forward backtest
 # -----------------------------
-daily_df["lstm_prob"] = train_lstm(daily_df, features=features)
+window_size = 500   # training window
+test_size = 100     # testing window
+all_probs = []
+
+for start in range(0, len(daily_df) - window_size - test_size + 1, test_size):
+    train_df = daily_df.iloc[start:start+window_size]
+    test_df = daily_df.iloc[start+window_size:start+window_size+test_size]
+    
+    # Concatenate to keep index intact
+    combined = pd.concat([train_df, test_df])
+    
+    # Train LSTM and get probabilities
+    probs = train_lstm(combined, features=features)
+    
+    # Take only the test period probabilities
+    probs_test = probs.loc[test_df.index]
+    all_probs.append(probs_test)
+
+# Combine all test window probabilities
+daily_df["lstm_prob"] = pd.concat(all_probs).sort_index()
 
 
 # -----------------------------
-# Confidence-weighted + threshold signal
+# Confidence-weighted + thresholded signal
 # -----------------------------
-threshold = 0.53  # lower threshold to capture more trades
+threshold = 0.55
 daily_df["final_signal"] = daily_df["signal_daily"] * np.where(
     (daily_df["lstm_prob"] > threshold) | (daily_df["lstm_prob"] < 1-threshold),
     (daily_df["lstm_prob"] - 0.5) * 2,
     0
 )
-
-# -----------------------------
-# Apply GARCH volatility regime sizing
-# -----------------------------
-# Scale signal by GARCH predicted volatility (optional)
-daily_df["final_signal"] *= daily_df.get("signal_daily", 1)  # placeholder if you have vol regime
 
 daily_df["final_signal"] = daily_df["final_signal"].shift(1)  # execute next day
 
@@ -88,10 +100,10 @@ print(f"Baseline Sharpe ratio: {baseline_sharpe:.2f}")
 # Plot
 # -----------------------------
 plt.figure(figsize=(14, 5))
-strategy_cum.plot(label="GARCH + LSTM Strategy")
+strategy_cum.plot(label="GARCH + LSTM Strategy (Walk-Forward)")
 baseline_cum.plot(label="Buy & Hold")
 plt.legend()
-plt.title("Strategy vs Baseline")
+plt.title("Walk-Forward Strategy vs Baseline")
 plt.ylabel("Return")
 plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter(1))
 plt.show()
@@ -100,4 +112,4 @@ plt.show()
 # -----------------------------
 # Save output
 # -----------------------------
-daily_df.to_csv("final_strategy_output.csv")
+daily_df.to_csv("walkforward_strategy_output_fixed.csv")
