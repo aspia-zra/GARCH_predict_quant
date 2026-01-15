@@ -8,7 +8,7 @@ from models.lstm import train_lstm
 
 
 # -----------------------------
-# Utility: Sharpe Ratio
+# Sharpe ratio utility
 # -----------------------------
 def sharpe_ratio(returns, risk_free_rate=0.0, periods=252):
     excess = returns - risk_free_rate / periods
@@ -25,43 +25,41 @@ daily_df = daily_df.dropna(subset=["log_ret", "signal_daily"])
 
 
 # -----------------------------
+# Add extra features for LSTM
+# -----------------------------
+daily_df["ret_1"] = daily_df["log_ret"].shift(1)
+daily_df["ret_5"] = daily_df["log_ret"].rolling(5).mean()
+daily_df["vol_5"] = daily_df["log_ret"].rolling(5).std()
+daily_df.dropna(inplace=True)
+
+features = ["log_ret", "ret_1", "ret_5", "vol_5"]
+
+
+# -----------------------------
 # Run LSTM (probabilities)
 # -----------------------------
-daily_df["lstm_prob"] = train_lstm(daily_df["log_ret"])
+daily_df["lstm_prob"] = train_lstm(daily_df, features=features)
 
 
 # -----------------------------
-# Confidence-weighted signal
+# Confidence-weighted + threshold signal
 # -----------------------------
-# GARCH decides direction
-# LSTM decides strength
-daily_df["final_signal"] = (
-    daily_df["signal_daily"] * (daily_df["lstm_prob"] - 0.5) * 2
+threshold = 0.55  # only trade if LSTM confident
+daily_df["final_signal"] = daily_df["signal_daily"] * np.where(
+    (daily_df["lstm_prob"] > threshold) | (daily_df["lstm_prob"] < 1-threshold),
+    (daily_df["lstm_prob"] - 0.5) * 2,
+    0
 )
-
-# Cap leverage / risk
-daily_df["final_signal"] = daily_df["final_signal"].clip(-1, 1)
-
-# Execute next day
-daily_df["final_signal"] = daily_df["final_signal"].shift(1)
+daily_df["final_signal"] = daily_df["final_signal"].shift(1)  # execute next day
 
 
 # -----------------------------
 # Backtest
 # -----------------------------
 daily_df["forward_return"] = daily_df["log_ret"].shift(-1)
-
-daily_df["strategy_return"] = (
-    daily_df["final_signal"] * daily_df["forward_return"]
-)
-
-# Baseline: buy & hold
+daily_df["strategy_return"] = daily_df["final_signal"] * daily_df["forward_return"]
 daily_df["baseline_return"] = daily_df["forward_return"]
 
-
-# -----------------------------
-# Performance
-# -----------------------------
 strategy_cum = (1 + daily_df["strategy_return"].fillna(0)).cumprod() - 1
 baseline_cum = (1 + daily_df["baseline_return"].fillna(0)).cumprod() - 1
 
