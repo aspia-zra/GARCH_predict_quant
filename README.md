@@ -1,100 +1,228 @@
-# Intraday volatility GARCH model prediction strategy
+# Intraday Volatility Trading Strategy using GARCH and LSTM
 
-This project implements a simple volatility-driven trading strategy using a GARCH model to generate daily trade signals, demonstrating:
+## Overview
 
-- time series modelling
-- rolling-window estimation
-- signal generation
-- backtesting
+This project investigates a **volatility-driven trading strategy** that combines classical econometric modelling with modern machine learning techniques.
 
-Financial vocabulary explained at the bottom.
+The system uses:
 
-Note: This project is a research project combining statistical models with rule-based execution. The GARCH model is used as a feature generator; rolling volatility forecasts are treated as learned signals derived from historical data and combined with intraday indicators to drive execution decisions.
+- a **GARCH model** to forecast daily volatility regimes  
+- an **LSTM neural network** to learn directional patterns in returns  
+- a **two-timeframe trading framework** combining daily and intraday data  
+- **out-of-sample backtesting** with risk-adjusted evaluation  
 
-This strategy follows a supervised-style pipeline:
-- feature construction
-- signal generation
-- evaluation with out-of-sample backtesting
+The project is designed as a **research-oriented MSc-level study**, emphasising methodology, correctness, and evaluation rather than optimising for raw profit.
 
-This is done using a two-timeframe strategy using daily and intraday data on a given asset, wherein daily data is used to decide whether to trade today, and intraday signals are used to decide when to enter, and positions are opened once per day, and held until the end of the trading day.
+---
 
-## Strategy
+## Motivation
 
-This strategy uses a GARCH model using volatility to generate a daily prediction premium, comparing this prediction to recent realised volatility: trades are made when predicted volatility is unusually high.
+Financial markets exhibit:
 
-The intraday data uses technical indicators for the price action pattern to generate our final signal to determine the singular time to enter and hold the trade during the day until the end of the day.
+- volatility clustering  
+- regime changes  
+- non-stationary behaviour  
 
-## Logic
+Traditional models (e.g. **GARCH**) are effective at volatility forecasting, while neural networks are better suited to **pattern recognition in sequences**.
 
-Daily signals:
-- calculate daily log returns
-- calculate rolling 6 month variance
-- fit a GARCH model in a rolling window
-- predict variance for the next day
-- signal generation to execute trades, if predicted variance > realised variance
-- backtest: apply the signal to daily returns
+This project explores how:
 
-Intraday signals:
-- merge daily signal data with intraday data
-- compute intraday indicators
-- enter one position per day when intraday conditions align
-- exit at end of day
+- statistical volatility forecasts can act as **features**  
+- machine learning confidence can **scale risk**  
+- combining both can improve **decision-making**
 
-## Files
+---
 
-main.py
-daily.csv
-intraday.csv
+## Strategy Design
+
+### High-Level Architecture
+```
+Daily Prices
+↓
+Log Returns
+↓
+Rolling GARCH Volatility Forecast
+↓
+Daily Trade Direction (GARCH)
+↓
+LSTM Confidence Scaling
+↓
+Position Sizing
+↓
+Backtest & Evaluation
+```
+
+---
+
+### Daily Layer (GARCH)
+
+- Compute daily log returns  
+- Estimate rolling 6-month realised variance  
+- Fit a **GARCH(1,3)** model in a rolling window  
+- Forecast next-day variance  
+- Compute a prediction premium  
+- Generate a directional daily signal  
+
+> The GARCH model is used **only as a feature generator**.
+
+---
+
+### Machine Learning Layer (LSTM)
+
+An LSTM network is trained on sequences of historical log returns to estimate the **probability of a positive return**.
+
+**Key characteristics:**
+
+- sequence-based learning  
+- binary directional target  
+- probability output (0–1)  
+- chronological train/test split  
+
+The LSTM **does not decide direction directly**.  
+Instead, it:
+
+- provides confidence  
+- scales position size  
+- reduces exposure during uncertain periods  
+
+This reflects real-world quantitative trading practice.
+
+---
+
+### Signal Combination Logic
+
+Final position sizing:
+Final Signal = GARCH Direction × LSTM Confidence
+
+
+Where:
+
+- **GARCH** determines long or short  
+- **LSTM** determines position size  
+
+Positions are:
+
+- entered at the next trading day  
+- held for one day  
+- capped to avoid excessive leverage  
+
+---
+
+## Backtesting & Evaluation
+
+### Metrics Used
+
+- Cumulative return  
+- Buy-and-hold baseline  
+- Number of trades  
+- Sharpe ratio (risk-adjusted return)  
+
+> Accuracy alone is not used, as it is misleading in financial contexts.
+
+---
+
+### Results Interpretation
+
+- Strategy evaluated against a **strong baseline** (buy-and-hold)  
+- Many strategies underperform in raw returns  
+
+This project prioritises **correct research methodology** over profit optimisation.
+
+---
+
+## Project Structure
+
+```
+garch/
+│
+├── data/
+│ ├── daily.csv
+│ ├── intraday.csv
+│
+├── models/
+│ ├── garch.py
+│ ├── lstm.py
+│
+├── strategy.py
+├── final_strategy_output.csv
+├── README.md
+
+```
+
+---
 
 ## Requirements
-Python 3.11
-pandas
-numpy
-arch
+
+- Python 3.11  
+- numpy  
+- pandas  
+- matplotlib  
+- arch  
+- joblib  
+- tensorflow / keras  
+- scikit-learn  
 
 ### Install dependencies
 
-``` pip install numpy pandas matplotlib arch joblib ```
+```bash
+pip install numpy pandas matplotlib arch joblib tensorflow scikit-learn
+```
 
-### Running the files
+## Running the Project
 
-``` python main.py ```
+```bash
+python strategy.py
+```
 
-The script prints total return.
+## Outputs
 
-## Notes
+- Cumulative return plot  
+- Sharpe ratio  
+- Number of trades  
+- CSV containing signals and returns  
 
-Optimised for speed:
+---
 
-We have used a parallel rolling GARCH model, where each rolling window is independent and use their own CPU
+## Financial Terminology (Brief)
 
+- **Log return**: Percentage price change using logarithms  
+- **Variance**: Measure of return dispersion  
+- **Volatility**: Square root of variance  
+- **GARCH**: Model capturing volatility clustering  
+- **Sharpe ratio**: Risk-adjusted return metric  
+- **Look-ahead bias**: Using future data unintentionally  
 
+---
 
+## Limitations
 
-Financial Vocabulary explained here:
+- Single asset  
+- No transaction costs  
+- No slippage  
+- Simplified execution assumptions  
 
-* * insert
+These are intentional for clarity.
 
-The script outputs a daily time series, and strategy returns as a cumulative return and per-day returns as a Series.
+---
 
-# Future improvements:
+## Future Extensions
 
-Data:
-- splitting data into training validation and test periods to avoid overfitting
-- apply strategy across several stocks to test diversification
+- Transaction cost modelling  
+- Volatility-targeted position sizing  
+- Multi-asset portfolios  
+- EGARCH / GJR-GARCH  
+- Regime classification  
+- Reinforcement learning policy optimisation  
 
-Modelling:
-- GARCH variants to capture asymmetry, such as EGARCH
-- alternative stochastic volatility models for speed
-- automatic standardisation pipelines to normalise
+---
 
-Performance Evaluation:
-- Sharpe ratio to measure risk-adjusted performance
-- Monte Carlo simulations to test robustness
+## Academic Positioning
 
-Visualisation:
-- use Plotly for interactive visualisation
+This project demonstrates:
 
-AI:
-- using LSTM models on returns
-- reinforcement learning to optimise signal weighting as trading policy
+- Econometric modelling  
+- ML sequence learning  
+- Signal fusion  
+- Backtesting discipline  
+- Research-grade evaluation  
+
