@@ -54,7 +54,7 @@ Results:
 
 After overfitting prevention:
 
-![alt text](image/image.png)
+![alt text](images/image.png)
 
 ## Walk-Forward Validation
 
