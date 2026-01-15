@@ -28,11 +28,15 @@ daily_df = daily_df.dropna(subset=["log_ret", "signal_daily"])
 # Add extra features for LSTM
 # -----------------------------
 daily_df["ret_1"] = daily_df["log_ret"].shift(1)
+daily_df["ret_3"] = daily_df["log_ret"].rolling(3).mean()
 daily_df["ret_5"] = daily_df["log_ret"].rolling(5).mean()
 daily_df["vol_5"] = daily_df["log_ret"].rolling(5).std()
+daily_df["mom_3"] = daily_df["ret_3"] / daily_df["vol_5"]
+daily_df["mom_5"] = daily_df["ret_5"] / daily_df["vol_5"]
+
 daily_df.dropna(inplace=True)
 
-features = ["log_ret", "ret_1", "ret_5", "vol_5"]
+features = ["log_ret", "ret_1", "ret_3", "ret_5", "vol_5", "mom_3", "mom_5"]
 
 
 # -----------------------------
@@ -44,12 +48,19 @@ daily_df["lstm_prob"] = train_lstm(daily_df, features=features)
 # -----------------------------
 # Confidence-weighted + threshold signal
 # -----------------------------
-threshold = 0.55  # only trade if LSTM confident
+threshold = 0.53  # lower threshold to capture more trades
 daily_df["final_signal"] = daily_df["signal_daily"] * np.where(
     (daily_df["lstm_prob"] > threshold) | (daily_df["lstm_prob"] < 1-threshold),
     (daily_df["lstm_prob"] - 0.5) * 2,
     0
 )
+
+# -----------------------------
+# Apply GARCH volatility regime sizing
+# -----------------------------
+# Scale signal by GARCH predicted volatility (optional)
+daily_df["final_signal"] *= daily_df.get("signal_daily", 1)  # placeholder if you have vol regime
+
 daily_df["final_signal"] = daily_df["final_signal"].shift(1)  # execute next day
 
 

@@ -26,7 +26,7 @@ def make_sequences(X, y, window=30):
 def train_lstm(df, target_col="log_ret", features=None, window=30, train_frac=0.7):
     """
     df: DataFrame with log returns and optional features
-    target_col: column to predict (by default log returns)
+    target_col: column to predict (default log returns)
     features: list of columns to use as input features
     """
     df = df.dropna()
@@ -39,7 +39,7 @@ def train_lstm(df, target_col="log_ret", features=None, window=30, train_frac=0.
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df[features].values)
     
-    # Target: up/down
+    # Target: up/down (can be replaced with large-move later)
     y = (df[target_col].values > 0).astype(int)
     
     X_seq, y_seq = make_sequences(X_scaled, y, window)

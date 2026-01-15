@@ -226,3 +226,8 @@ This project demonstrates:
 - Backtesting discipline  
 - Research-grade evaluation  
 
+
+Results: 
+![alt text](images/image-2.png)
+
+![alt text](images/image-1.png)
