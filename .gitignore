@@ -1,4 +1,5 @@
 venv/
 venv/
+*.ipynb
 __pycache__/
 *.pyc
